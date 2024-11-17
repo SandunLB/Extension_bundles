@@ -1,2 +1,2 @@
 # Extension_bundles
-Subscription Manager for multiple extension bundle payment getway with stripe
+Subscription Manager for multiple extension bundle payment getway with stripe and Firebase firestore
