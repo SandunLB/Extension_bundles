@@ -60,6 +60,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/ProBundle" replace />} />
           <Route path="/:bundleName" element={<BundlePage user={user} />} />
+          <Route path="/:bundleName/:plan" element={<BundlePage user={user} />} />
           <Route path="/success" element={<Success />} />
         </Routes>
       </Router>

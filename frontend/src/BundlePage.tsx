@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { GoogleLogin, googleLogout } from '@react-oauth/google'
 import { getAuth, signInWithCustomToken, signOut } from 'firebase/auth'
 import { User } from './App'
 import { bundleConfig } from './bundleConfig'
-import { ChevronRightIcon, CheckIcon, PackageIcon, LogOutIcon } from 'lucide-react'
+import { CheckIcon, PackageIcon, LogOutIcon, CreditCardIcon } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const BACKEND_URL = 'http://localhost:3000'
@@ -27,10 +27,17 @@ interface AuthResponse {
 }
 
 export default function Component({ user: initialUser }: BundlePageProps) {
-  const { bundleName } = useParams<{ bundleName: string }>()
+  const { bundleName, plan: urlPlan } = useParams<{ bundleName: string; plan: string }>()
   const navigate = useNavigate()
   const auth = getAuth()
   const [user, setUser] = useState(initialUser)
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(urlPlan || null)
+
+  useEffect(() => {
+    if (urlPlan && ['monthly', 'yearly', 'lifetime'].includes(urlPlan)) {
+      setSelectedPlan(urlPlan)
+    }
+  }, [urlPlan])
 
   if (!bundleName || !bundleConfig[bundleName as keyof typeof bundleConfig]) {
     navigate('/')
@@ -119,116 +126,120 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     }
   }
 
+  const renderPlanDetails = (plan: string) => {
+    const planDetails = bundle.prices[plan as keyof typeof bundle.prices]
+    if (!planDetails) return null
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white rounded-lg shadow-lg p-8 mb-6"
+      >
+        <h3 className="text-3xl font-bold text-indigo-600 mb-4">
+          {plan.charAt(0).toUpperCase() + plan.slice(1)} Plan
+        </h3>
+        <p className="text-gray-600 mb-6 text-xl">Price: {planDetails.price}</p>
+        <div className="space-y-4 mb-6">
+          {bundle.extensions.map((ext, index) => (
+            <motion.div
+              key={ext}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 * index, duration: 0.5 }}
+              className="flex items-center"
+            >
+              <CheckIcon className="w-6 h-6 text-green-500 mr-2" />
+              <span className="text-gray-700">{ext}</span>
+            </motion.div>
+          ))}
+        </div>
+        {user ? (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => initiateCheckout(plan)}
+            className="w-full py-3 px-6 rounded-full bg-indigo-600 text-white font-semibold text-lg hover:bg-indigo-700 transition-colors flex items-center justify-center"
+          >
+            <CreditCardIcon className="w-6 h-6 mr-2" />
+            Purchase Now
+          </motion.button>
+        ) : (
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => {
+              console.error('Login Failed')
+              alert('Failed to sign in. Please try again.')
+            }}
+            useOneTap
+          />
+        )}
+      </motion.div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-5xl w-full"
+        className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-4xl w-full"
       >
-        <div className="md:flex">
-          <div className="md:w-1/2 p-8">
+        <div className="p-8">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <h2 className="text-4xl font-bold text-indigo-600 mb-4 flex items-center">
+              <PackageIcon className="w-10 h-10 mr-3" />
+              {bundle.name}
+            </h2>
+            <p className="text-gray-600 mb-6 text-xl">{bundle.description}</p>
+          </motion.div>
+          {user && (
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+              className="mb-6 bg-indigo-100 p-4 rounded-lg flex items-center justify-between"
             >
-              <h2 className="text-4xl font-bold text-indigo-600 mb-4 flex items-center">
-                <PackageIcon className="w-8 h-8 mr-2" />
-                {bundle.name}
-              </h2>
-              <p className="text-gray-600 mb-6 text-lg">{bundle.description}</p>
-              <div className="space-y-4 mb-6">
-                {bundle.extensions.map((ext, index) => (
-                  <motion.div
-                    key={ext}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
-                    className="flex items-center bg-indigo-50 p-3 rounded-lg"
-                  >
-                    <CheckIcon className="w-5 h-5 text-green-500 mr-2" />
-                    <span className="text-indigo-800">{ext}</span>
-                  </motion.div>
-                ))}
-              </div>
-              {user ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="mb-6 bg-indigo-100 p-4 rounded-lg"
-                >
-                  <p className="text-sm text-indigo-800 mb-2">Signed in as: {user.email}</p>
-                  <button
-                    onClick={handleSignOut}
-                    className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors flex items-center"
-                  >
-                    <LogOutIcon className="w-4 h-4 mr-1" />
-                    Sign out
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="mb-6"
-                >
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => {
-                      console.error('Login Failed')
-                      alert('Failed to sign in. Please try again.')
-                    }}
-                    useOneTap
-                  />
-                </motion.div>
-              )}
+              <p className="text-sm text-indigo-800">Signed in as: {user.email}</p>
+              <button
+                onClick={handleSignOut}
+                className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors flex items-center"
+              >
+                <LogOutIcon className="w-4 h-4 mr-1" />
+                Sign out
+              </button>
             </motion.div>
-          </div>
-          <div className="md:w-1/2 bg-gradient-to-br from-indigo-600 to-purple-700 p-8 text-white">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <h3 className="text-3xl font-bold mb-6">Choose Your Plan</h3>
-              <div className="space-y-4">
-                {Object.entries(bundle.prices).map(([plan, { price, id }], index) => (
-                  <motion.button
-                    key={plan}
-                    onClick={() => initiateCheckout(plan)}
-                    disabled={!user}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
-                    className={`w-full py-4 px-6 rounded-xl flex items-center justify-between transition-all transform hover:scale-105 ${
-                      user
-                        ? 'bg-white text-indigo-600 hover:bg-indigo-100 hover:shadow-lg'
-                        : 'bg-indigo-400 text-indigo-100 cursor-not-allowed'
-                    }`}
-                  >
-                    <span className="font-semibold text-lg">
-                      {plan.charAt(0).toUpperCase() + plan.slice(1)} - {price}
-                    </span>
-                    <ChevronRightIcon className="w-6 h-6" />
-                  </motion.button>
-                ))}
-              </div>
-              {!user && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                  className="text-sm text-indigo-200 mt-4"
+          )}
+          {selectedPlan ? (
+            renderPlanDetails(selectedPlan)
+          ) : (
+            <div className="grid gap-6 md:grid-cols-3">
+              {Object.entries(bundle.prices).map(([plan, { price }], index) => (
+                <motion.div
+                  key={plan}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
                 >
-                  Please sign in to purchase a bundle
-                </motion.p>
-              )}
-            </motion.div>
-          </div>
+                  <Link
+                    to={`/${bundleName}/${plan}`}
+                    className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+                  >
+                    <h3 className="text-2xl font-semibold text-indigo-600 mb-2">
+                      {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                    </h3>
+                    <p className="text-gray-600 text-lg">{price}</p>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </div>
