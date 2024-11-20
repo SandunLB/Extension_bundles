@@ -6,7 +6,7 @@ import { GoogleLogin, googleLogout } from '@react-oauth/google'
 import { getAuth, signInWithCustomToken, signOut } from 'firebase/auth'
 import { User } from './App'
 import { bundleConfig } from './bundleConfig'
-import { CheckIcon, PackageIcon, LogOutIcon, CreditCardIcon, SparklesIcon } from 'lucide-react'
+import { CheckIcon, PackageIcon, LogOutIcon, CreditCardIcon, SparklesIcon, Loader2Icon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const BACKEND_URL = 'http://localhost:3000'
@@ -26,12 +26,23 @@ interface AuthResponse {
   error?: string
 }
 
+const LoadingSpinner = () => (
+  <motion.div
+    animate={{ rotate: 360 }}
+    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+  >
+    <Loader2Icon className="w-5 h-5" />
+  </motion.div>
+)
+
 export default function Component({ user: initialUser }: BundlePageProps) {
   const { bundleName, plan: urlPlan } = useParams<{ bundleName: string; plan: string }>()
   const navigate = useNavigate()
   const auth = getAuth()
   const [user, setUser] = useState(initialUser)
   const [selectedPlan, setSelectedPlan] = useState<string | null>(urlPlan || null)
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [isPurchasing, setIsPurchasing] = useState(false)
 
   useEffect(() => {
     if (urlPlan && ['monthly', 'yearly', 'lifetime'].includes(urlPlan)) {
@@ -47,6 +58,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
   const bundle = bundleConfig[bundleName as keyof typeof bundleConfig]
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    setIsSigningIn(true)
     try {
       if (!credentialResponse.credential) {
         throw new Error('No credential received')
@@ -77,6 +89,8 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     } catch (error) {
       console.error('Login error:', error)
       alert('Failed to sign in. Please try again.')
+    } finally {
+      setIsSigningIn(false)
     }
   }
 
@@ -96,6 +110,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
       return
     }
 
+    setIsPurchasing(true)
     try {
       const response = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
         method: 'POST',
@@ -123,6 +138,8 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     } catch (error) {
       console.error('Error initiating checkout:', error)
       alert('An error occurred while initiating checkout. Please try again.')
+    } finally {
+      setIsPurchasing(false)
     }
   }
 
@@ -162,21 +179,40 @@ export default function Component({ user: initialUser }: BundlePageProps) {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => initiateCheckout(plan)}
-            className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center relative z-10"
+            disabled={isPurchasing}
+            className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center relative z-10 disabled:opacity-50"
           >
-            <CreditCardIcon className="w-6 h-6 mr-2" />
-            Purchase Now
+            {isPurchasing ? (
+              <LoadingSpinner />
+            ) : (
+              <>
+                <CreditCardIcon className="w-6 h-6 mr-2" />
+                Purchase Now
+              </>
+            )}
           </motion.button>
         ) : (
           <div className="relative z-10">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => {
-                console.error('Login Failed')
-                alert('Failed to sign in. Please try again.')
-              }}
-              useOneTap
-            />
+            {!isSigningIn ? (
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  console.error('Login Failed')
+                  alert('Failed to sign in. Please try again.')
+                }}
+                useOneTap
+                type="standard"
+                theme="filled_blue"
+                size="large"
+                text="signin_with"
+                shape="rectangular"
+              />
+            ) : (
+              <div className="h-10 flex items-center justify-center bg-blue-500 text-white rounded-md">
+                <LoadingSpinner />
+                <span className="ml-2">Signing in...</span>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
