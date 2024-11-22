@@ -16,8 +16,6 @@ const bundleConfig = {
     name: 'Advanced Bundle',
     type: 'bundle',
     extensions: ['Canvabulkbg', 'Ideobot', 'Midbot', 'AdvancedTool'],
-    description: 'Comprehensive solutions for power users tackling complex tasks.',
-    image: '/img.png?height=400&width=600',
     prices: {
       monthly: { price: '$39.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
       yearly: { price: '$399.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
@@ -28,49 +26,41 @@ const bundleConfig = {
     name: 'Pro Bundle',
     type: 'bundle',
     extensions: ['Canvabulkbg', 'Ideobot', 'Midbot'],
-    description: 'Enhance your workflow with advanced tools designed for professionals.',
-    image: '/pro-bundle.png?height=400&width=600',
     prices: {
-      monthly: { price: '$29.99/month', id: 'price_1Q79KREUAhHysq2jXpL9wGHv' },
-      yearly: { price: '$299.99/year', id: 'price_1Q79KwEUAhHysq2jYFqNHZtU' },
-      lifetime: { price: '$599.99 one-time', id: 'price_1Q79LREUAhHysq2jZihKUIc5' },
+      monthly: { price: '$29.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      yearly: { price: '$299.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
+      lifetime: { price: '$599.99 one-time', id: 'price_1Q79JyEUAhHysq2jtihJTIc4' },
     },
   },
   'StarterBundle': {
     name: 'Starter Bundle',
     type: 'bundle',
     extensions: ['Canvabulkbg', 'Ideobot'],
-    description: 'Perfect for beginners looking to explore powerful productivity tools.',
-    image: '/starter-bundle.png?height=400&width=600',
     prices: {
-      monthly: { price: '$19.99/month', id: 'price_1Q79MwEUAhHysq2jApK0wIXv' },
-      yearly: { price: '$199.99/year', id: 'price_1Q79NWEUAhHysq2jBFqOIZtU' },
-      lifetime: { price: '$399.99 one-time', id: 'price_1Q79NyEUAhHysq2jCihLVJc6' },
+      monthly: { price: '$19.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      yearly: { price: '$199.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
+      lifetime: { price: '$399.99 one-time', id: 'price_1Q79JyEUAhHysq2jtihJTIc4' },
     },
   },
 };
 
-const productConfig = {
+const licenseProductConfig = {
   'PIKBOT': {
-      name: 'PIKBOT',
-      type: 'single',
-      description: 'Powerful AI-driven bot for enhanced productivity.',
-      image: '/pikbot.png?height=400&width=600',
-      prices: {
-        monthly: { price: '$9.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
-        yearly: { price: '$99.99/year', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
-        lifetime: { price: '$199.99 one-time', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
-      },
+    name: 'PIKBOT',
+    type: 'license',
+    prices: {
+      monthly: { price: '$9.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      yearly: { price: '$99.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
+      lifetime: { price: '$199.99 one-time', id: 'price_1Q79JyEUAhHysq2jtihJTIc4' },
     },
+  },
   'AdvancedTool': {
     name: 'Advanced Tool',
-    type: 'single',
-    description: 'Cutting-edge tool for advanced users and complex projects.',
-    image: '/advanced-tool.png?height=400&width=600',
+    type: 'license',
     prices: {
-      monthly: { price: '$14.99/month', id: 'price_1Q79QwEUAhHysq2jGpN2yKZx' },
-      yearly: { price: '$149.99/year', id: 'price_1Q79RWEUAhHysq2jHFqQKZtW' },
-      lifetime: { price: '$299.99 one-time', id: 'price_1Q79RyEUAhHysq2jIihNXLe8' },
+      monthly: { price: '$14.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      yearly: { price: '$149.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
+      lifetime: { price: '$299.99 one-time', id: 'price_1Q79JyEUAhHysq2jtihJTIc4' },
     },
   },
 };
@@ -85,14 +75,14 @@ admin.initializeApp({
 const db = admin.firestore();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Generate a license key (only for single products)
+// Generate a license key (only for license products)
 function generateLicenseKey(email, productId, plan) {
   const data = `${email}|${productId}|${plan}|${Date.now()}`;
   const hash = crypto.createHash('sha256').update(data).digest('hex');
   return `${productId.toUpperCase()}-${hash.substr(0, 6)}-${hash.substr(6, 6)}-${hash.substr(12, 6)}-${hash.substr(18, 6)}`;
 }
 
-// Calculate expiration date based on plan (only for single products)
+// Calculate expiration date based on plan (only for license products)
 function calculateExpirationDate(plan) {
   const now = new Date();
   switch (plan) {
@@ -167,8 +157,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
     if (bundleConfig[productId]) {
       product = bundleConfig[productId];
-    } else if (productConfig[productId]) {
-      product = productConfig[productId];
+    } else if (licenseProductConfig[productId]) {
+      product = licenseProductConfig[productId];
     } else {
       return res.status(400).json({ error: 'Invalid product ID' });
     }
@@ -213,13 +203,13 @@ app.post('/api/check-payment-status', async (req, res) => {
 
     if (bundleConfig[productId]) {
       product = bundleConfig[productId];
-    } else if (productConfig[productId]) {
-      product = productConfig[productId];
+    } else if (licenseProductConfig[productId]) {
+      product = licenseProductConfig[productId];
     } else {
       throw new Error('Invalid product ID');
     }
 
-    if (product.type === 'single') {
+    if (product.type === 'license') {
       // Check if the license key already exists
       const existingLicenseQuery = await db.collection('licenses')
         .where('email', '==', email)
@@ -233,7 +223,7 @@ app.post('/api/check-payment-status', async (req, res) => {
       }
     }
 
-    if (!licenseKey && product.type === 'single') {
+    if (!licenseKey && product.type === 'license') {
       // If the license key doesn't exist, process the payment
       licenseKey = await processPayment(session, email, productId, plan);
     } else if (product.type === 'bundle') {
@@ -253,8 +243,8 @@ async function processPayment(session, email, productId, plan) {
   let product;
   if (bundleConfig[productId]) {
     product = bundleConfig[productId];
-  } else if (productConfig[productId]) {
-    product = productConfig[productId];
+  } else if (licenseProductConfig[productId]) {
+    product = licenseProductConfig[productId];
   } else {
     throw new Error('Invalid product ID');
   }
@@ -282,7 +272,7 @@ async function processPayment(session, email, productId, plan) {
 
     const subscriptions = userDoc.data().subscriptions || {};
 
-    if (product.type === 'single') {
+    if (product.type === 'license') {
       const existingLicenseQuery = await transaction.get(
         db.collection('licenses')
           .where('email', '==', email)
@@ -338,7 +328,7 @@ app.get('/api/check-subscription/:email', async (req, res) => {
   }
 });
 
-// License activation endpoint (only for single products)
+// License activation endpoint (only for license products)
 app.post('/api/activate-license', async (req, res) => {
   try {
     const { licenseKey, productId } = req.body;
@@ -377,7 +367,7 @@ app.post('/api/activate-license', async (req, res) => {
   }
 });
 
-// License validation endpoint (only for single products)
+// License validation endpoint (only for license products)
 app.post('/api/validate-license', async (req, res) => {
   try {
     const { licenseKey, productId } = req.body;
