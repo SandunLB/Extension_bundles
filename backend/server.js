@@ -4,25 +4,79 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { OAuth2Client } = require('google-auth-library');
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Firebase Admin SDK initialization
-const serviceAccount = {
-  type: "service_account",
-  project_id: "extension-bundles",
-  private_key_id: "80bfadc1c6e1bb8e6a47bbbef5d2c79153fe036d",
-  private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDN5bdTdYxJNjvG\nCBLKIW8ccY45bv8sL3L+gOGaGjI6G2navgUXK6yXMEs1kUj6rlspZr/XTd2Nz4gL\naG1gWFavpdc6NOhzy9nbCp6Du0gR2pMj2NxddtYNt6idmhY40rCuYqynCMhrUvdz\naPJsbVqIBHhhe/LH26OgUoTYjOIkPlz5EFA0ajI+RCCfLF+jmIH88sODAOdtmu9i\nh1sX4aWsM5cUyoeqIIGqwGeRFhIgJEDbi1BKPxAVlGNX2tDzeC5WfJ8YsCK0jXcY\ntdeacXBOctDuehe8wOU5UF3/FV9SCJ8oYX/4k74D9w055Pl9eCYG9D7tLaMIRuw8\nfAOcE7LbAgMBAAECggEAFySNNkX4eQ4t1R95L9u8MnVCaDWQBvZlCt2PqL5DC6xN\nz0wbzwlArVRnT7kUe+DMgbB5OwkXMGZgQ0VUmJy1Tv7pXIiFNubLMPIA8+DsGTL5\nO5vs1ls8yhlCTEdSh3E0chVzPz8fJTkTyUFwO5G7DZ4lrcdnIuG5guljjIz2qjNe\nAI6sHgk7Z1DB3J1Wt2BkntHQ3SeV0HOBOfrkALF26qcoYdi7otnt6jCczVhDfqtQ\nIjv7icuoI5Soa1LUMttu4z3VMln4covohqQt6fMEJ72lzL+7l1QUEYVH/4Jw9L6n\nBWmk0qRKTniUT/0W+RnZNNqVJdhd5bzu6RiIA869UQKBgQDoHdERtXhZS+VmLJuz\n53mr9Xr44nebutwPy0IqAKpsrk268z9VfHq79jIj206ZFXBHsfVcuDk9RFlAq99h\nJwmgeKxyXhEUmsLAZmaKzNMLSNqwVCLN+NUMxzljWkwi7FvZ6tQECMVkyENaPlv3\na99FUnLI4E1JkV79ds7tuXb7qQKBgQDjFUK4GBltVVcTmTQCNZ+qGChA6ixbQSyc\nR/7LguvYknaOrb5kpGC9BkmPBUqE7fgeXRLZVv6KD2A6aJaLBVW3AHWyvZe3uOmA\nhWhuGniRhny/IYWl5IHzqM0xUSTrqQElhr3uy8xelPNrguILvCV/6uapM/eD6sQL\nnawHCLWs4wKBgCnTHZYETgBBJb/Ib/H11r2+iP8Jx6WfAQIzjOOGpS7aJZV3OUVN\nHcx6q0Q8wyfgbg/tKBoh8+ZvR2nYznJyF1D8DY66FnfQ/yCuEvIVwD17TjSRpIfa\nu4EG8PdPEQMF9fMJVlS3w+HKGCDNtcKahGu4VIiPqj2EXUpsuxKo5aCpAoGAR0uF\nhwcJ9Km2jRCso4TyfBTZjof3JS9xMh/ofzy7j2NslZ83B6IUPUScE6s1mkacf+v4\n3wPRJsdtDumHWl5yauJaEaQ03hnQNemsv+TPteDjiZ6ct1jm8/krczBmxxZopb+I\nIlEZ+RgK1NZi4gxQObkmcjk+nMw4gO0f9ZVmdMECgYBNmCo06VNV3dHyAmL0WaXQ\neDXifAbfB16Lj8RVdcKmmGRaMdi2nxWQ5rgj/jXA489jJUlHK8jTWIgu+3FziaZZ\nF0ie0cQ7vcluNl0CSvS/Mt4VU3N0+QlIBMXDOyIMqLQKUv2Ru7z+RSSzumiT6+xG\n6k3wJ9N06CoKV/SwWFFTLQ==\n-----END PRIVATE KEY-----\n",
-  client_email: "firebase-adminsdk-zbhn1@extension-bundles.iam.gserviceaccount.com",
-  client_id: "104522763994872084724",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-zbhn1%40extension-bundles.iam.gserviceaccount.com",
-  universe_domain: "googleapis.com"
+// Bundle and Product Configurations
+const bundleConfig = {
+  'AdvancedBundle': {
+    name: 'Advanced Bundle',
+    type: 'bundle',
+    extensions: ['Canvabulkbg', 'Ideobot', 'Midbot', 'AdvancedTool'],
+    description: 'Comprehensive solutions for power users tackling complex tasks.',
+    image: '/img.png?height=400&width=600',
+    prices: {
+      monthly: { price: '$39.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      yearly: { price: '$399.99/year', id: 'price_1Q79JWEUAhHysq2jOFqMGYsU' },
+      lifetime: { price: '$799.99 one-time', id: 'price_1Q79JyEUAhHysq2jtihJTIc4' },
+    },
+  },
+  'ProBundle': {
+    name: 'Pro Bundle',
+    type: 'bundle',
+    extensions: ['Canvabulkbg', 'Ideobot', 'Midbot'],
+    description: 'Enhance your workflow with advanced tools designed for professionals.',
+    image: '/pro-bundle.png?height=400&width=600',
+    prices: {
+      monthly: { price: '$29.99/month', id: 'price_1Q79KREUAhHysq2jXpL9wGHv' },
+      yearly: { price: '$299.99/year', id: 'price_1Q79KwEUAhHysq2jYFqNHZtU' },
+      lifetime: { price: '$599.99 one-time', id: 'price_1Q79LREUAhHysq2jZihKUIc5' },
+    },
+  },
+  'StarterBundle': {
+    name: 'Starter Bundle',
+    type: 'bundle',
+    extensions: ['Canvabulkbg', 'Ideobot'],
+    description: 'Perfect for beginners looking to explore powerful productivity tools.',
+    image: '/starter-bundle.png?height=400&width=600',
+    prices: {
+      monthly: { price: '$19.99/month', id: 'price_1Q79MwEUAhHysq2jApK0wIXv' },
+      yearly: { price: '$199.99/year', id: 'price_1Q79NWEUAhHysq2jBFqOIZtU' },
+      lifetime: { price: '$399.99 one-time', id: 'price_1Q79NyEUAhHysq2jCihLVJc6' },
+    },
+  },
 };
+
+const productConfig = {
+  'PIKBOT': {
+      name: 'PIKBOT',
+      type: 'single',
+      description: 'Powerful AI-driven bot for enhanced productivity.',
+      image: '/pikbot.png?height=400&width=600',
+      prices: {
+        monthly: { price: '$9.99/month', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+        yearly: { price: '$99.99/year', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+        lifetime: { price: '$199.99 one-time', id: 'price_1Q79IwEUAhHysq2jWpJ8wFXv' },
+      },
+    },
+  'AdvancedTool': {
+    name: 'Advanced Tool',
+    type: 'single',
+    description: 'Cutting-edge tool for advanced users and complex projects.',
+    image: '/advanced-tool.png?height=400&width=600',
+    prices: {
+      monthly: { price: '$14.99/month', id: 'price_1Q79QwEUAhHysq2jGpN2yKZx' },
+      yearly: { price: '$149.99/year', id: 'price_1Q79RWEUAhHysq2jHFqQKZtW' },
+      lifetime: { price: '$299.99 one-time', id: 'price_1Q79RyEUAhHysq2jIihNXLe8' },
+    },
+  },
+};
+
+// Firebase Admin SDK initialization
+const serviceAccount = require('./config/serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -31,54 +85,27 @@ admin.initializeApp({
 const db = admin.firestore();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Bundle configuration
-const bundleConfig = {
-  'ProBundle': {
-    name: 'Pro Bundle',
-    extensions: ['Canvabulkbg', 'Ideobot', 'Midbot'],
-    prices: {
-      monthly: 'price_1Q79IwEUAhHysq2jWpJ8wFXv',
-      yearly: 'price_1Q79JWEUAhHysq2jOFqMGYsU',
-      lifetime: 'price_1Q79JyEUAhHysq2jtihJTIc4',
-    },
-  },
-  'StarterBundle': {
-    name: 'Starter Bundle',
-    extensions: ['Canvabulkbg', 'Ideobot'],
-    prices: {
-      monthly: 'price_1Q79IwEUAhHysq2jWpJ8wFXv',
-      yearly: 'price_1Q79JWEUAhHysq2jOFqMGYsU',
-      lifetime: 'price_1Q79JyEUAhHysq2jtihJTIc4',
-    },
-  },
-  'AdvancedBundle': {
-    name: 'Advanced Bundle',
-    extensions: ['Canvabulkbg', 'Ideobot', 'Midbot', 'AdvancedTool'],
-    prices: {
-      monthly: 'price_1Q79IwEUAhHysq2jWpJ8wFXv',
-      yearly: 'price_1Q79JWEUAhHysq2jOFqMGYsU',
-      lifetime: 'price_1Q79JyEUAhHysq2jtihJTIc4',
-    },
-  },
-  'UltimateBundle': {
-    name: 'Ultimate Bundle',
-    extensions: ['Canvabulkbg', 'Ideobot', 'Midbot', 'AdvancedTool', 'PremiumFeature'],
-    prices: {
-      monthly: 'price_1Q79IwEUAhHysq2jWpJ8wFXv',
-      yearly: 'price_1Q79JWEUAhHysq2jOFqMGYsU',
-      lifetime: 'price_1Q79JyEUAhHysq2jtihJTIc4',
-    },
-  },
-  'CustomBundle': {
-    name: 'Custom Bundle',
-    extensions: ['CustomTool1', 'CustomTool2'],
-    prices: {
-      monthly: 'price_1Q79IwEUAhHysq2jWpJ8wFXv',
-      yearly: 'price_1Q79JWEUAhHysq2jOFqMGYsU',
-      lifetime: 'price_1Q79JyEUAhHysq2jtihJTIc4',
-    },
-  },
-};
+// Generate a license key (only for single products)
+function generateLicenseKey(email, productId, plan) {
+  const data = `${email}|${productId}|${plan}|${Date.now()}`;
+  const hash = crypto.createHash('sha256').update(data).digest('hex');
+  return `${productId.toUpperCase()}-${hash.substr(0, 6)}-${hash.substr(6, 6)}-${hash.substr(12, 6)}-${hash.substr(18, 6)}`;
+}
+
+// Calculate expiration date based on plan (only for single products)
+function calculateExpirationDate(plan) {
+  const now = new Date();
+  switch (plan) {
+    case 'monthly':
+      return new Date(now.setMonth(now.getMonth() + 1));
+    case 'yearly':
+      return new Date(now.setFullYear(now.getFullYear() + 1));
+    case 'lifetime':
+      return null; // No expiration for lifetime plans
+    default:
+      throw new Error('Invalid plan');
+  }
+}
 
 // Authentication endpoint
 app.post('/api/auth', async (req, res) => {
@@ -135,21 +162,25 @@ app.post('/api/auth', async (req, res) => {
 // Create checkout session
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
-    const { bundleId, plan, email } = req.body;
-    const bundle = bundleConfig[bundleId];
-    
-    if (!bundle) {
-      return res.status(400).json({ error: 'Invalid bundle ID' });
-    }
+    const { productId, plan, email } = req.body;
+    let product;
 
+    if (bundleConfig[productId]) {
+      product = bundleConfig[productId];
+    } else if (productConfig[productId]) {
+      product = productConfig[productId];
+    } else {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{ price: bundle.prices[plan], quantity: 1 }],
+      line_items: [{ price: product.prices[plan].id, quantity: 1 }],
       mode: plan === 'lifetime' ? 'payment' : 'subscription',
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       client_reference_id: email,
-      metadata: { bundleId, plan, email },
+      metadata: { productId, plan, email },
     });
 
     res.json({ sessionId: session.id, sessionUrl: session.url });
@@ -159,45 +190,139 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-// Handle successful payment
-app.post('/api/payment-success', async (req, res) => {
+// Check payment status and return license key if available
+app.post('/api/check-payment-status', async (req, res) => {
   try {
     const { sessionId } = req.body;
+    if (!sessionId) {
+      throw new Error('No session ID provided');
+    }
+
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    const { email, bundleId, plan } = session.metadata;
-    const bundle = bundleConfig[bundleId];
+    if (!session) {
+      throw new Error('Invalid session ID');
+    }
 
-    const subscriptionData = {
-      plan,
-      status: 'active',
-      startDate: admin.firestore.FieldValue.serverTimestamp(),
-      endDate: plan === 'lifetime' ? null : admin.firestore.FieldValue.serverTimestamp(),
-      stripeCustomerId: session.customer,
-      stripeEmail: session.customer_details.email,
-      stripeSubscriptionId: session.subscription,
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    const { email, productId, plan } = session.metadata;
+    if (!email || !productId || !plan) {
+      throw new Error('Missing required metadata');
+    }
 
-    const userRef = db.collection('users').doc(email);
-    const userDoc = await userRef.get();
+    let licenseKey = null;
+    let product;
+
+    if (bundleConfig[productId]) {
+      product = bundleConfig[productId];
+    } else if (productConfig[productId]) {
+      product = productConfig[productId];
+    } else {
+      throw new Error('Invalid product ID');
+    }
+
+    if (product.type === 'single') {
+      // Check if the license key already exists
+      const existingLicenseQuery = await db.collection('licenses')
+        .where('email', '==', email)
+        .where('productId', '==', productId)
+        .where('plan', '==', plan)
+        .limit(1)
+        .get();
+
+      if (!existingLicenseQuery.empty) {
+        licenseKey = existingLicenseQuery.docs[0].id;
+      }
+    }
+
+    if (!licenseKey && product.type === 'single') {
+      // If the license key doesn't exist, process the payment
+      licenseKey = await processPayment(session, email, productId, plan);
+    } else if (product.type === 'bundle') {
+      // For bundles, just process the payment without generating a license key
+      await processPayment(session, email, productId, plan);
+    }
+
+    res.json({ success: true, licenseKey });
+  } catch (error) {
+    console.error('Payment status check error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Helper function to process payment and generate license key
+async function processPayment(session, email, productId, plan) {
+  let product;
+  if (bundleConfig[productId]) {
+    product = bundleConfig[productId];
+  } else if (productConfig[productId]) {
+    product = productConfig[productId];
+  } else {
+    throw new Error('Invalid product ID');
+  }
+
+  const subscriptionData = {
+    plan,
+    status: 'active',
+    startDate: admin.firestore.FieldValue.serverTimestamp(),
+    endDate: plan === 'lifetime' ? null : admin.firestore.FieldValue.serverTimestamp(),
+    stripeCustomerId: session.customer,
+    stripeEmail: session.customer_details.email,
+    stripeSubscriptionId: session.subscription,
+    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  const userRef = db.collection('users').doc(email);
+
+  let licenseKey = null;
+  await db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
     
     if (!userDoc.exists) {
       throw new Error('User not found');
     }
 
     const subscriptions = userDoc.data().subscriptions || {};
-    bundle.extensions.forEach(extension => {
-      subscriptions[extension] = subscriptionData;
-    });
 
-    await userRef.update({ subscriptions });
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Payment processing error:', error);
-    res.status(500).json({ error: 'Failed to process payment' });
-  }
-});
+    if (product.type === 'single') {
+      const existingLicenseQuery = await transaction.get(
+        db.collection('licenses')
+          .where('email', '==', email)
+          .where('productId', '==', productId)
+          .where('plan', '==', plan)
+          .limit(1)
+      );
+
+      if (!existingLicenseQuery.empty) {
+        licenseKey = existingLicenseQuery.docs[0].id;
+      } else {
+        licenseKey = generateLicenseKey(email, productId, plan);
+        const licenseData = {
+          key: licenseKey,
+          email,
+          productId,
+          plan,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: 'inactive',
+          activatedAt: null,
+          expiresAt: null,
+        };
+
+        const licenseRef = db.collection('licenses').doc(licenseKey);
+        transaction.set(licenseRef, licenseData);
+      }
+
+      subscriptions[productId] = { ...subscriptionData, licenseKey };
+    } else {
+      // For bundles, we don't generate a license key
+      product.extensions.forEach(extension => {
+        subscriptions[extension] = subscriptionData;
+      });
+    }
+
+    transaction.update(userRef, { subscriptions });
+  });
+  
+  return licenseKey;
+}
 
 // Check subscription status
 app.get('/api/check-subscription/:email', async (req, res) => {
@@ -213,5 +338,75 @@ app.get('/api/check-subscription/:email', async (req, res) => {
   }
 });
 
+// License activation endpoint (only for single products)
+app.post('/api/activate-license', async (req, res) => {
+  try {
+    const { licenseKey, productId } = req.body;
+    const licenseDoc = await db.collection('licenses').doc(licenseKey).get();
+
+    if (!licenseDoc.exists) {
+      return res.status(404).json({ success: false, message: 'License key not found' });
+    }
+
+    const licenseData = licenseDoc.data();
+    if (licenseData.status === 'active') {
+      return res.status(400).json({ success: false, message: 'License has already been activated' });
+    }
+
+    if (licenseData.productId !== productId) {
+      return res.status(400).json({ success: false, message: 'Invalid product for this license' });
+    }
+
+    const expirationDate = calculateExpirationDate(licenseData.plan);
+
+    // Update the license document with activation info
+    await db.collection('licenses').doc(licenseKey).update({
+      status: 'active',
+      activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: expirationDate,
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'License activated successfully',
+      expiresAt: expirationDate
+    });
+  } catch (error) {
+    console.error('License activation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to activate license' });
+  }
+});
+
+// License validation endpoint (only for single products)
+app.post('/api/validate-license', async (req, res) => {
+  try {
+    const { licenseKey, productId } = req.body;
+    const licenseDoc = await db.collection('licenses').doc(licenseKey).get();
+
+    if (!licenseDoc.exists) {
+      return res.status(404).json({ success: false, message: 'License key not found' });
+    }
+
+    const licenseData = licenseDoc.data();
+    if (licenseData.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'License is not active' });
+    }
+
+    if (licenseData.productId !== productId) {
+      return res.status(400).json({ success: false, message: 'Invalid product for this license' });
+    }
+
+    if (licenseData.expiresAt && new Date() > licenseData.expiresAt.toDate()) {
+      return res.status(400).json({ success: false, message: 'License has expired' });
+    }
+
+    res.json({ success: true, message: 'License is valid', expiresAt: licenseData.expiresAt });
+  } catch (error) {
+    console.error('License validation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to validate license' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
