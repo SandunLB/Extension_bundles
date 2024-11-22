@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { GoogleLogin, googleLogout } from '@react-oauth/google'
 import { getAuth, signInWithCustomToken, signOut } from 'firebase/auth'
 import { User } from './App'
-import { bundleConfig, productConfig, Product, Price } from './config'
+import { bundleConfig, licenseProductConfig, Product, Price } from './config'
 import { CheckIcon, PackageIcon, LogOutIcon, CreditCardIcon, SparklesIcon, Loader2Icon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -33,42 +33,27 @@ const LoadingSpinner = () => (
   </motion.div>
 )
 
-type PlanType = 'monthly' | 'yearly' | 'lifetime';
-
-const isPlanType = (plan: string): plan is PlanType => {
-  return ['monthly', 'yearly', 'lifetime'].includes(plan);
-}
-
 export default function BundlePage({ user: initialUser }: BundlePageProps) {
   const { productName, plan: urlPlan } = useParams<{ productName: string; plan: string }>()
   const navigate = useNavigate()
   const auth = getAuth()
   const [user, setUser] = useState(initialUser)
-  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(urlPlan || null)
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [isPurchasing, setIsPurchasing] = useState(false)
-  const [product, setProduct] = useState<Product | null>(null)
 
   useEffect(() => {
-    if (productName) {
-      const foundProduct = bundleConfig[productName] || productConfig[productName]
-      if (foundProduct) {
-        setProduct(foundProduct)
-      } else {
-        navigate('/')
-      }
-    }
-  }, [productName, navigate])
-
-  useEffect(() => {
-    if (urlPlan && isPlanType(urlPlan)) {
+    if (urlPlan && ['monthly', 'yearly', 'lifetime'].includes(urlPlan)) {
       setSelectedPlan(urlPlan)
     }
   }, [urlPlan])
 
-  if (!product) {
+  if (!productName || !(bundleConfig[productName] || licenseProductConfig[productName])) {
+    navigate('/')
     return null
   }
+
+  const product: Product = bundleConfig[productName] || licenseProductConfig[productName]
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
     setIsSigningIn(true)
@@ -117,7 +102,7 @@ export default function BundlePage({ user: initialUser }: BundlePageProps) {
     }
   }
 
-  const initiateCheckout = async (plan: PlanType) => {
+  const initiateCheckout = async (plan: string) => {
     if (!user) {
       alert('Please sign in to purchase a product')
       return
@@ -156,7 +141,7 @@ export default function BundlePage({ user: initialUser }: BundlePageProps) {
     }
   }
 
-  const renderPlanDetails = (plan: PlanType) => {
+  const renderPlanDetails = (plan: 'monthly' | 'yearly' | 'lifetime') => {
     const planDetails = product.prices[plan]
     if (!planDetails) return null
 
@@ -290,7 +275,7 @@ export default function BundlePage({ user: initialUser }: BundlePageProps) {
             )}
             <AnimatePresence mode="wait">
               {selectedPlan ? (
-                renderPlanDetails(selectedPlan)
+                renderPlanDetails(selectedPlan as 'monthly' | 'yearly' | 'lifetime')
               ) : (
                 <motion.div
                   key="plan-selection"
@@ -300,7 +285,7 @@ export default function BundlePage({ user: initialUser }: BundlePageProps) {
                   transition={{ duration: 0.5 }}
                   className="grid gap-6 md:grid-cols-3"
                 >
-                  {(Object.entries(product.prices) as [PlanType, Price][]).map(([plan, priceInfo], index) => (
+                  {(Object.entries(product.prices) as [string, Price][]).map(([plan, priceInfo], index) => (
                     <motion.div
                       key={plan}
                       initial={{ opacity: 0, y: 20 }}

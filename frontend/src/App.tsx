@@ -5,7 +5,7 @@ import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import BundlePage from './BundlePage'
 import Success from './Success'
-import { bundleConfig, productConfig } from './config'
+
 
 const GOOGLE_CLIENT_ID = '254523860171-2d6l9k860ev4s05c7hh9shmdagehgr5u.apps.googleusercontent.com'
 
