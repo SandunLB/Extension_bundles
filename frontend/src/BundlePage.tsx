@@ -1,15 +1,13 @@
-'use client'
-
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { GoogleLogin, googleLogout } from '@react-oauth/google'
 import { getAuth, signInWithCustomToken, signOut } from 'firebase/auth'
 import { User } from './App'
-import { bundleConfig } from './bundleConfig'
+import { bundleConfig, productConfig, Product, Price } from './config'
 import { CheckIcon, PackageIcon, LogOutIcon, CreditCardIcon, SparklesIcon, Loader2Icon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const BACKEND_URL = 'http://localhost:3000'
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
 interface BundlePageProps {
   user: User | null
@@ -35,27 +33,42 @@ const LoadingSpinner = () => (
   </motion.div>
 )
 
-export default function Component({ user: initialUser }: BundlePageProps) {
-  const { bundleName, plan: urlPlan } = useParams<{ bundleName: string; plan: string }>()
+type PlanType = 'monthly' | 'yearly' | 'lifetime';
+
+const isPlanType = (plan: string): plan is PlanType => {
+  return ['monthly', 'yearly', 'lifetime'].includes(plan);
+}
+
+export default function BundlePage({ user: initialUser }: BundlePageProps) {
+  const { productName, plan: urlPlan } = useParams<{ productName: string; plan: string }>()
   const navigate = useNavigate()
   const auth = getAuth()
   const [user, setUser] = useState(initialUser)
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(urlPlan || null)
+  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [isPurchasing, setIsPurchasing] = useState(false)
+  const [product, setProduct] = useState<Product | null>(null)
 
   useEffect(() => {
-    if (urlPlan && ['monthly', 'yearly', 'lifetime'].includes(urlPlan)) {
+    if (productName) {
+      const foundProduct = bundleConfig[productName] || productConfig[productName]
+      if (foundProduct) {
+        setProduct(foundProduct)
+      } else {
+        navigate('/')
+      }
+    }
+  }, [productName, navigate])
+
+  useEffect(() => {
+    if (urlPlan && isPlanType(urlPlan)) {
       setSelectedPlan(urlPlan)
     }
   }, [urlPlan])
 
-  if (!bundleName || !bundleConfig[bundleName as keyof typeof bundleConfig]) {
-    navigate('/')
+  if (!product) {
     return null
   }
-
-  const bundle = bundleConfig[bundleName as keyof typeof bundleConfig]
 
   const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
     setIsSigningIn(true)
@@ -104,9 +117,9 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     }
   }
 
-  const initiateCheckout = async (plan: string) => {
+  const initiateCheckout = async (plan: PlanType) => {
     if (!user) {
-      alert('Please sign in to purchase a bundle')
+      alert('Please sign in to purchase a product')
       return
     }
 
@@ -120,7 +133,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
         body: JSON.stringify({
           email: user.email,
           plan: plan,
-          bundleId: bundleName,
+          productId: productName,
         }),
       })
 
@@ -143,8 +156,8 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     }
   }
 
-  const renderPlanDetails = (plan: string) => {
-    const planDetails = bundle.prices[plan as keyof typeof bundle.prices]
+  const renderPlanDetails = (plan: PlanType) => {
+    const planDetails = product.prices[plan]
     if (!planDetails) return null
 
     return (
@@ -160,20 +173,22 @@ export default function Component({ user: initialUser }: BundlePageProps) {
           {plan.charAt(0).toUpperCase() + plan.slice(1)} Plan
         </h3>
         <p className="text-gray-600 mb-6 text-2xl font-semibold relative z-10">{planDetails.price}</p>
-        <div className="space-y-4 mb-8 relative z-10">
-          {bundle.extensions.map((ext, index) => (
-            <motion.div
-              key={ext}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 * index, duration: 0.5 }}
-              className="flex items-center bg-indigo-50 p-3 rounded-lg"
-            >
-              <CheckIcon className="w-6 h-6 text-green-500 mr-3" />
-              <span className="text-indigo-800 text-lg">{ext}</span>
-            </motion.div>
-          ))}
-        </div>
+        {product.type === 'bundle' && (
+          <div className="space-y-4 mb-8 relative z-10">
+            {product.extensions?.map((ext, index) => (
+              <motion.div
+                key={ext}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 * index, duration: 0.5 }}
+                className="flex items-center bg-indigo-50 p-3 rounded-lg"
+              >
+                <CheckIcon className="w-6 h-6 text-green-500 mr-3" />
+                <span className="text-indigo-800 text-lg">{ext}</span>
+              </motion.div>
+            ))}
+          </div>
+        )}
         {user ? (
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -230,8 +245,8 @@ export default function Component({ user: initialUser }: BundlePageProps) {
         <div className="md:flex">
           <div className="md:w-1/2 relative">
             <img
-              src={bundle.image}
-              alt={bundle.name}
+              src={product.image}
+              alt={product.name}
               className="object-cover w-full h-full"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
@@ -243,7 +258,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
                 className="text-4xl font-bold mb-2 flex items-center"
               >
                 <PackageIcon className="w-10 h-10 mr-3" />
-                {bundle.name}
+                {product.name}
               </motion.h2>
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
@@ -251,7 +266,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
                 transition={{ delay: 0.3, duration: 0.5 }}
                 className="text-lg"
               >
-                {bundle.description}
+                {product.description}
               </motion.p>
             </div>
           </div>
@@ -285,7 +300,7 @@ export default function Component({ user: initialUser }: BundlePageProps) {
                   transition={{ duration: 0.5 }}
                   className="grid gap-6 md:grid-cols-3"
                 >
-                  {Object.entries(bundle.prices).map(([plan, { price }], index) => (
+                  {(Object.entries(product.prices) as [PlanType, Price][]).map(([plan, priceInfo], index) => (
                     <motion.div
                       key={plan}
                       initial={{ opacity: 0, y: 20 }}
@@ -293,14 +308,14 @@ export default function Component({ user: initialUser }: BundlePageProps) {
                       transition={{ delay: 0.1 * index, duration: 0.5 }}
                     >
                       <Link
-                        to={`/${bundleName}/${plan}`}
+                        to={`/${productName}/${plan}`}
                         className="block bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                       >
                         <h3 className="text-2xl font-semibold text-indigo-600 mb-2 flex items-center">
                           <SparklesIcon className="w-5 h-5 mr-2" />
                           {plan.charAt(0).toUpperCase() + plan.slice(1)}
                         </h3>
-                        <p className="text-gray-600 text-lg font-medium">{price}</p>
+                        <p className="text-gray-600 text-lg font-medium">{priceInfo.price}</p>
                       </Link>
                     </motion.div>
                   ))}
@@ -313,3 +328,4 @@ export default function Component({ user: initialUser }: BundlePageProps) {
     </div>
   )
 }
+

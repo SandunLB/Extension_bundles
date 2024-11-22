@@ -5,7 +5,7 @@ import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import BundlePage from './BundlePage'
 import Success from './Success'
-import { bundleConfig } from './bundleConfig'
+import { bundleConfig, productConfig } from './config'
 
 const GOOGLE_CLIENT_ID = '254523860171-2d6l9k860ev4s05c7hh9shmdagehgr5u.apps.googleusercontent.com'
 
@@ -59,8 +59,8 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Navigate to="/ProBundle" replace />} />
-          <Route path="/:bundleName" element={<BundlePage user={user} />} />
-          <Route path="/:bundleName/:plan" element={<BundlePage user={user} />} />
+          <Route path="/:productName" element={<BundlePage user={user} />} />
+          <Route path="/:productName/:plan" element={<BundlePage user={user} />} />
           <Route path="/success" element={<Success />} />
         </Routes>
       </Router>
